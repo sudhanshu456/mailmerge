@@ -156,20 +156,20 @@ def main(sample, dry_run, limit, no_limit, resume,
             message_num += 1
 
             #logic for limit_rate
-            if limit_rate is not None & limit_rate != 0:
+            if limit_rate is not None and limit_rate != 0:
                 if limit_rate > message_num:
-                    if pause_time is not None & pause_time != 0:
+                    if pause_time is not None and pause_time != 0:
                         time.sleep(pause_time)
                     else:
                         pass
                 else:
                     limit_rate += message_num
-                    if pause_time is not None & pause_time != 0:
+                    if pause_time is not None and pause_time != 0:
                         time.sleep(pause_time)
                     else:
                         pass
             else:
-                if pause_time is not None & pause_time != 0:
+                if pause_time is not None and pause_time != 0:
                     time.sleep(pause_time)
                 else:
                     pass
