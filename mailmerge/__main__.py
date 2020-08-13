@@ -7,14 +7,16 @@ from __future__ import print_function
 import sys
 import codecs
 import textwrap
+import configparser
+import time
 import click
 from .template_message import TemplateMessage
 from .sendmail_client import SendmailClient
 from .exceptions import MailmergeError
 from . import utils
-import configparser
 
-import time
+
+
 
 # Python 2 pathlib support requires backport
 try:
@@ -96,7 +98,7 @@ if sys.stdout.encoding != 'UTF-8' and not hasattr(sys.stdout, "buffer"):
 )
 def main(sample, dry_run, limit, no_limit, resume,
          template_path, database_path, config_path,
-         output_format,pause_time,limit_rate):
+         output_format, pause_time, limit_rate):
     """
     Mailmerge is a simple, command line mail merge tool.
 
@@ -112,15 +114,16 @@ def main(sample, dry_run, limit, no_limit, resume,
     template_path = Path(template_path)
     database_path = Path(database_path)
     config_path = Path(config_path)
+    #getting limit and pause time from config
     try:
         config = configparser.RawConfigParser()
         config.read(str(config_path))
         if config.get("smtp_server", "pause_time"):
-            pause_time = config.get("smtp_server", "pause_time")
+            pause_time = int(config.get("smtp_server", "pause_time"))
         if config.get("smtp_server", "limit_rate"):
-            limit_rate = config.get("smtp_server", "limit_rate")
-    except Exception as e:
-        print(e)
+            limit_rate = int(config.get("smtp_server", "limit_rate"))
+    except Exception as errors:
+        print(errors)
     # Make sure input files exist and provide helpful prompts
     check_input_files(template_path, database_path, config_path, sample)
 
@@ -135,6 +138,7 @@ def main(sample, dry_run, limit, no_limit, resume,
         template_message = TemplateMessage(template_path)
         csv_database = read_csv_database(database_path)
         sendmail_client = SendmailClient(config_path, dry_run)
+        #looping       
         for _, row in enumerate_range(csv_database, start, stop):
             sender, recipients, message = template_message.render(row)
             sendmail_client.sendmail(sender, recipients, message)
@@ -150,23 +154,25 @@ def main(sample, dry_run, limit, no_limit, resume,
                 output_format,
             )
             message_num += 1
-            if limit_rate is not None:
-                if limit_rate>message_num:
-                    if pause_time is not None:
+
+            #logic for limit_rate
+            if limit_rate is not None & limit_rate != 0:
+                if limit_rate > message_num:
+                    if pause_time is not None & pause_time != 0:
                         time.sleep(pause_time)
                     else:
                         pass
                 else:
-                    limit_rate+=message_num
-                    if pause_time is not None:
+                    limit_rate += message_num
+                    if pause_time is not None & pause_time != 0:
                         time.sleep(pause_time)
                     else:
-                        time.sleep(1)
+                        pass
             else:
-                if pause_time is not None:
-                        time.sleep(pause_time)
+                if pause_time is not None & pause_time != 0:
+                    time.sleep(pause_time)
                 else:
-                    time.sleep(1)
+                    pass
 
     except MailmergeError as error:
         hint_text = '\nHint: "--resume {}"'.format(message_num)
@@ -264,13 +270,18 @@ def create_sample_input_files(template_path, database_path, config_path):
             port = 465
             security = SSL/TLS
             username = YOUR_USERNAME_HERE
-
+            pause_time=1
+            limit_rate=5
+            
             # Example: SSL/TLS
             # [smtp_server]
             # host = smtp.mail.umich.edu
             # port = 465
             # security = SSL/TLS
             # username = YOUR_USERNAME_HERE
+            # password = YOUR PASSWORD
+            # pause_time=1
+            # limit_rate=5
 
             # Example: STARTTLS security
             # [smtp_server]
@@ -278,6 +289,9 @@ def create_sample_input_files(template_path, database_path, config_path):
             # port = 25
             # security = STARTTLS
             # username = YOUR_USERNAME_HERE
+            # password = YOUR PASSWORD
+            # pause_time=1
+            # limit_rate=5
 
             # Example: No security
             # [smtp_server]
