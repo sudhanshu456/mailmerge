@@ -12,6 +12,9 @@ from .template_message import TemplateMessage
 from .sendmail_client import SendmailClient
 from .exceptions import MailmergeError
 from . import utils
+import configparser
+
+import time
 
 # Python 2 pathlib support requires backport
 try:
@@ -74,6 +77,18 @@ if sys.stdout.encoding != 'UTF-8' and not hasattr(sys.stdout, "buffer"):
     help="server configuration (mailmerge_server.conf)",
 )
 @click.option(
+    "--pause-time", is_flag=False,
+    type=click.IntRange(0, None),
+    help="Pause (seconds) time between the mails default(1)",
+)
+@click.option(
+    "--limit-rate", is_flag=False,
+    type=click.IntRange(0, None),
+    help="How many mail in a single execute like 10 per 1 sec",
+)
+
+
+@click.option(
     "--output-format", "output_format",
     default="colorized",
     type=click.Choice(["colorized", "text", "raw"]),
@@ -81,7 +96,7 @@ if sys.stdout.encoding != 'UTF-8' and not hasattr(sys.stdout, "buffer"):
 )
 def main(sample, dry_run, limit, no_limit, resume,
          template_path, database_path, config_path,
-         output_format):
+         output_format,pause_time,limit_rate):
     """
     Mailmerge is a simple, command line mail merge tool.
 
@@ -97,7 +112,15 @@ def main(sample, dry_run, limit, no_limit, resume,
     template_path = Path(template_path)
     database_path = Path(database_path)
     config_path = Path(config_path)
-
+    try:
+        config = configparser.RawConfigParser()
+        config.read(str(config_path))
+        if config.get("smtp_server", "pause_time"):
+            pause_time = config.get("smtp_server", "pause_time")
+        if config.get("smtp_server", "limit_rate"):
+            limit_rate = config.get("smtp_server", "limit_rate")
+    except Exception as e:
+        print(e)
     # Make sure input files exist and provide helpful prompts
     check_input_files(template_path, database_path, config_path, sample)
 
@@ -127,6 +150,24 @@ def main(sample, dry_run, limit, no_limit, resume,
                 output_format,
             )
             message_num += 1
+            if limit_rate is not None:
+                if limit_rate>message_num:
+                    if pause_time is not None:
+                        time.sleep(pause_time)
+                    else:
+                        pass
+                else:
+                    limit_rate+=message_num
+                    if pause_time is not None:
+                        time.sleep(pause_time)
+                    else:
+                        time.sleep(1)
+            else:
+                if pause_time is not None:
+                        time.sleep(pause_time)
+                else:
+                    time.sleep(1)
+
     except MailmergeError as error:
         hint_text = '\nHint: "--resume {}"'.format(message_num)
         sys.exit(
