@@ -40,6 +40,7 @@ class SendmailClient(object):
             if self.security is not None:
                 # Read username only if needed
                 self.username = config.get("smtp_server", "username")
+                self.password = config.get("smtp_server", "password")
         except configparser.Error as err:
             raise MailmergeError("{}: {}".format(self.config_path, err))
 
